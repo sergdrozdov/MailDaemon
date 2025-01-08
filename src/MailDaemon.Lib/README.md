@@ -1,1 +1,1 @@
-MailDaemon library can be used as component to send batch mails.
+Mail Daemon library can be used as component to send batch mails.

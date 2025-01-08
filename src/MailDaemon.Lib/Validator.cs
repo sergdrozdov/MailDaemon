@@ -1,6 +1,6 @@
 ﻿using System.Text.RegularExpressions;
 
-namespace MailDaemon.Lib
+namespace MailDaemon.Core
 {
     public class Validator : IValidator
     {

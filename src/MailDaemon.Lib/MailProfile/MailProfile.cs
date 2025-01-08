@@ -5,7 +5,13 @@ namespace MailDaemon.Core
 {
 	public class MailProfile
 	{
-		[JsonProperty("sender")]
+        [JsonIgnore]
+        public string FileName { get; set; }
+		
+        [JsonProperty("operator")]
+        public SenderInfo Operator { get; set; }
+		
+        [JsonProperty("sender")]
 		public SenderInfo Sender { get; set; }
 
 		[JsonProperty("recipients")]
@@ -15,14 +21,20 @@ namespace MailDaemon.Core
 		public string Subject { get; set; }
 
         /// <summary>
-        /// Path to mail template file.
+        /// Mail template file name.
         /// </summary>
         [JsonProperty("template")]
-        public string MailBodyTemplateFilePath { get; set; } = "";
+        public string MailBodyTemplateFileName { get; set; } = "";
+
+        /// <summary>
+        /// Path to mail template file.
+        /// </summary>
+        public string MailBodyTemplateFullPath { get; set; } = "";
 
         /// <summary>
         /// Template content.
         /// </summary>
+        [JsonIgnore]
         public string MailBody { get; set; }
 
 		[JsonProperty("attachments")]

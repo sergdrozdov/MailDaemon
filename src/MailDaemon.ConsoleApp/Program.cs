@@ -1,31 +1,103 @@
 ﻿using Microsoft.Extensions.Configuration;
 using System;
 using System.IO;
+using System.Linq;
 using System.Net.Mail;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using MailDaemon.Core;
+using MailDaemon.Lib;
+using Serilog;
+using Serilog.Events;
+using Serilog.Formatting.Json;
+using System.Diagnostics;
 
 namespace MailDaemon.ConsoleApp
 {
     internal class Program
     {
+        private static SettingsInfo SettingsInfo;
+        private static IMailDaemonService mailDaemonService;
+        private static IMailProfileService mailProfileService;
+        private static IMailMessageService mailMessageService;
+        private static MailProfile mailProfile;
+        private static MailAgent mailAgent = new();
+        private static bool DisplayHelp;
 		private static string PreviewsDirPath { get; set; }
 		private static string ReportsDirPath { get; set; }
+		//private static string AppDir { get; set; }
 
         private static void Main(string[] args)
         {
-			var configuration = new ConfigurationBuilder()
-				.SetBasePath(Directory.GetCurrentDirectory())
-				.AddJsonFile("appSettings.json", optional: true, reloadOnChange: true)
-				.AddEnvironmentVariables().Build();
-			
-			var displayHelp = false;
-			var mailDaemonService = new MailDaemonService();
-			var mailAgent = new MailAgent();
+            var configBuilder = new ConfigurationBuilder()
+				.SetBasePath(AppContext.BaseDirectory)
+				.AddJsonFile("appSettings.json", optional: false);
+
+            var config = configBuilder.Build();
+
+            Log.Logger = new LoggerConfiguration()
+                .WriteTo.File("logs\\log.txt", restrictedToMinimumLevel: LogEventLevel.Debug, rollingInterval: RollingInterval.Day)
+                .MinimumLevel.Debug()
+                .ReadFrom.Configuration(config)
+                .CreateLogger();
+
+            Log.Information("Start application.");
+
+			SettingsInfo = new SettingsInfo();
+			mailDaemonService = new MailDaemonService();
+			mailProfileService = new JsonMailProfileService();
+            mailMessageService = new MailMessageService();
+            mailAgent = new MailAgent();
+            
+            SettingsInfo.AppDirectory = AppDomain.CurrentDomain.BaseDirectory;
+
+            mailProfile = new MailProfile();
+            try
+            {
+                // settings can be loaded from another source, e.g. database.
+                SettingsInfo.MailProfile = config["App:MailProfile"];
+                mailProfile.MailBodyTemplateFileName = SettingsInfo.MailProfile;
+                Log.Information($"Profile template: \"{mailProfile.MailBodyTemplateFileName}\"");
+
+                SettingsInfo.SmtpHost = config["MailServer:SmtpHost"];
+                SettingsInfo.SmtpPort = Convert.ToInt32(config["MailServer:SmtpPort"]);
+                SettingsInfo.SmtpUsername = config["MailServer:SmtpUsername"];
+                SettingsInfo.SmtpPassword = config["MailServer:SmtpPassword"];
+                SettingsInfo.SmtpEnableSSL = Convert.ToBoolean(config["MailServer:SmtpEnableSSL"]);
+
+                if (mailProfile.Operator is not null && !string.IsNullOrEmpty(mailProfile.Operator.Address))
+                {
+                    SettingsInfo.Operator = new SenderInfo
+                    {
+                        Address = mailProfile.Operator.Address,
+                        Name = mailProfile.Operator.Name
+                    };
+                }
+                else
+                {
+                    SettingsInfo.Operator = new SenderInfo
+                    {
+                        Address = config["Operator:address"],
+                        Name = config["Operator:name"]
+                    };
+                }
+
+                // set SMTP server information
+                mailAgent.SmtpHost = SettingsInfo.SmtpHost;
+                mailAgent.SmtpPort = SettingsInfo.SmtpPort;
+                mailAgent.SmtpUsername = SettingsInfo.SmtpUsername;
+                mailAgent.SmtpPassword = SettingsInfo.SmtpPassword;
+                mailAgent.SmtpEnableSSL = SettingsInfo.SmtpEnableSSL;
+            }
+            catch (Exception ex)
+            {
+                Log.Fatal(GenerateExceptionDetails(ex));
+            }
 
             if (args.Length > 0)
 			{
+                Log.Information($"Command line args: mail-daemon {string.Join(" ", args)}");
 				try
                 {
                     var argIndex = 0;
@@ -43,10 +115,12 @@ namespace MailDaemon.ConsoleApp
                                 mailDaemonService.GeneratePreview = true;
                                 break;
                             case "-p":
-                                mailDaemonService.MailProfileFilename = Path.Combine(Environment.CurrentDirectory, "MailProfiles", args[argIndex + 1]);
+                                mailProfile.MailBodyTemplateFileName = args[argIndex + 1];
+                                mailProfile.MailBodyTemplateFullPath = Path.Combine(SettingsInfo.AppDirectory, SettingsInfo.MailProfilesDirectory, mailProfile.MailBodyTemplateFileName);
+                                Log.Information($"Profile new template: \"{mailProfile.MailBodyTemplateFileName}\"");
                                 break;
                             case "-h":
-                                displayHelp = true;
+                                DisplayHelp = true;
                                 break;
                         }
 
@@ -55,10 +129,22 @@ namespace MailDaemon.ConsoleApp
                 }
 				catch (Exception ex)
 				{
-					DisplayErrorMessage(ex.Message);
+                    Log.Fatal(GenerateExceptionDetails(ex));
+                    DisplayErrorMessage(ex.Message);
 					return;
 				}
 			}
+
+            if (DisplayHelp)
+            {
+                Console.WriteLine("Description:");
+                Console.WriteLine("-v\t\tValidation mode to verify mail profile integrity. With this argument mails not sending to recipients.");
+                Console.WriteLine("-d\t\tSend demo mail only to sender. With this argument mails not sending to recipients.");
+                Console.WriteLine("-gp\t\tCreate files on disk with generated mails for each recipient.");
+                Console.WriteLine("-p\t\tSet name of the mail profile.");
+                WaitForExit();
+                return;
+            }
 
             if (!string.IsNullOrEmpty(mailDaemonService.MailProfileFilename) && !File.Exists(mailDaemonService.MailProfileFilename))
             {
@@ -73,24 +159,6 @@ namespace MailDaemon.ConsoleApp
             //Console.WriteLine("Website:\thttps://sd.blackball.lv/sergey-drozdov");
             //Console.Write(Environment.NewLine);
 
-			if (displayHelp)
-			{
-				Console.WriteLine("Description:");
-				Console.WriteLine("-v\t\tValidation mode to verify mail profile integrity. With this argument mails not sending to recipients.");
-				Console.WriteLine("-d\t\tSend demo mail only to sender. With this argument mails not sending to recipients.");
-				Console.WriteLine("-gp\t\tCreate files on disk with generated mails for each recipient.");
-				Console.WriteLine("-p\t\tName of the mail profile.");
-				WaitForExit();
-				return;
-			}
-
-            // configure SMTP server info
-			mailAgent.SmtpHost = configuration["MailServer:SmtpHost"];
-			mailAgent.SmtpPort = Convert.ToInt32(configuration["MailServer:SmtpPort"]);
-			mailAgent.SmtpUsername = configuration["MailServer:SmtpUsername"];
-			mailAgent.SmtpPassword = configuration["MailServer:SmtpPassword"];
-			mailAgent.SmtpEnableSSL = Convert.ToBoolean(configuration["MailServer:SmtpEnableSSL"]);
-
             if (mailDaemonService.JustValidate)
 			{
 				Console.ForegroundColor = ConsoleColor.Yellow;
@@ -99,24 +167,86 @@ namespace MailDaemon.ConsoleApp
 				Console.ResetColor();
 			}
 
-			if (string.IsNullOrEmpty(mailDaemonService.MailProfileFilename))
-			    mailDaemonService.MailProfileFilename = Path.Combine(Environment.CurrentDirectory, "MailProfiles", configuration["App:MailProfile"]);
-			Console.ForegroundColor = ConsoleColor.Yellow;
-			Console.WriteLine($"--- Mail profile: \"{Path.GetFileName(mailDaemonService.MailProfileFilename)}\"");
-			Console.ResetColor();
+            Log.Information($"Application directory: {SettingsInfo.AppDirectory}");
 
             try
             {
-                mailDaemonService.ReadMailProfile();
+                //mailDaemonService.MailProfile = mailProfileService.ReadProfile();
+                mailProfile = mailProfileService.ReadProfile(Path.Combine(SettingsInfo.AppDirectory, SettingsInfo.MailProfilesDirectory, SettingsInfo.MailProfile));
             }
             catch (Exception ex)
             {
-                mailDaemonService.AddError(ex.Message);
+                Log.Fatal(GenerateExceptionDetails(ex));
+                DisplayErrorMessage(ex.Message);
+                WaitForExit();
+                return;
             }
 
-            mailDaemonService.ValidateMailProfile();
+            if (mailProfile.MailBodyTemplateFileName.StartsWith(".\\"))
+                mailProfile.MailBodyTemplateFullPath = Path.Combine(SettingsInfo.AppDirectory, mailProfile.MailBodyTemplateFileName.Replace(".\\", ""));
+            else
+                mailProfile.MailBodyTemplateFullPath = Path.Combine(SettingsInfo.AppDirectory, SettingsInfo.MailProfilesDirectory, mailProfile.MailBodyTemplateFileName);
 
-            ReportsDirPath = Path.Combine(Environment.CurrentDirectory, "reports");
+            var profileValidation = mailProfileService.ValidateMailProfile(mailProfile);
+            if (profileValidation.Count > 0)
+            {
+                // show errors
+                if (profileValidation.Any(x => x.Level == ValidationLevel.Error))
+                {
+                    SetErrorMessagesStyle();
+                    Console.WriteLine("");
+                    Console.WriteLine("Errors:");
+                    foreach (var item in profileValidation.Where(x => x.Level == ValidationLevel.Error))
+                    {
+                        DisplayErrorMessage(item.Message);
+                    }
+                }
+
+                // show warnings
+                if (profileValidation.Any(x => x.Level == ValidationLevel.Warning))
+                {
+                    SetWarningMessagesStyle();
+                    Console.WriteLine("");
+                    Console.WriteLine("Warnings:");
+                    foreach (var item in profileValidation.Where(x => x.Level == ValidationLevel.Warning))
+                    {
+                        DisplayWarningMessage(item.Message);
+                    }
+                }
+
+                // if mail profile contains errors - stop execution
+                if (mailDaemonService.Errors.Count > 0)
+                {
+                    WaitForExit();
+                    return;
+                }
+
+                // if mail profile contains warnings - ask user to continue or not
+                if (profileValidation.Any(x => x.Level == ValidationLevel.Warning))
+                {
+                    Console.WriteLine("");
+                    Console.Write("Continue? [Y/N]");
+
+                    var confirmed = false;
+                    string key;
+                    while (!confirmed)
+                    {
+                        key = Console.ReadLine().ToLower();
+
+                        if (key == "y")
+                        {
+                            confirmed = true;
+                        }
+                        if (key == "n")
+                        {
+                            WaitForExit();
+                            return;
+                        }
+                    }
+                }
+            }
+
+            ReportsDirPath = Path.Combine(SettingsInfo.AppDirectory, "reports");
             if (!Directory.Exists(ReportsDirPath))
                 Directory.CreateDirectory(ReportsDirPath);
 
@@ -124,7 +254,7 @@ namespace MailDaemon.ConsoleApp
             {
                 try
                 {
-                    PreviewsDirPath = Path.Combine(Environment.CurrentDirectory, "previews", Path.GetFileName(mailDaemonService.MailProfileFilename));
+                    PreviewsDirPath = Path.Combine(SettingsInfo.AppDirectory, "previews", Path.GetFileName(SettingsInfo.MailProfile));
                     if (!Directory.Exists(PreviewsDirPath))
                         Directory.CreateDirectory(PreviewsDirPath);
                     else
@@ -137,106 +267,63 @@ namespace MailDaemon.ConsoleApp
                 }
                 catch (Exception ex)
                 {
+                    Log.Fatal(GenerateExceptionDetails(ex));
                     DisplayErrorMessage(ex.Message);
                     WaitForExit();
                     return;
                 }
             }
 
-            mailDaemonService.Operator.Address = configuration["Operator:address"];
-            mailDaemonService.Operator.Name = configuration["Operator:name"];
+            try
+            {
+                mailProfile.MailBody = mailProfileService.ReadMailBodyTemplate(mailProfile.MailBodyTemplateFullPath);
+            }
+            catch (Exception ex)
+            {
+                Log.Fatal(GenerateExceptionDetails(ex));
+                WaitForExit();
+                return;
+            }
 
-            if (mailDaemonService.MailProfile.MailBodyTemplateFilePath.StartsWith(".\\"))
-				mailDaemonService.MailProfile.MailBodyTemplateFilePath = Path.Combine(Environment.CurrentDirectory, mailDaemonService.MailProfile.MailBodyTemplateFilePath.Replace(".\\", ""));
-			mailDaemonService.MailProfile.MailBody = mailDaemonService.ReadMailBodyTemplate(mailDaemonService.MailProfile.MailBodyTemplateFilePath);
-
-			// show errors
-			if (mailDaemonService.Errors.Count > 0)
-			{
-				SetErrorMessagesStyle();
-				Console.WriteLine("");
-				Console.WriteLine("Errors:");
-				foreach (var message in mailDaemonService.Errors)
-				{
-					DisplayErrorMessage(message.Message);
-				}
-			}
-
-			// show warnings
-			if (mailDaemonService.Warnings.Count > 0)
-			{
-				SetWarningMessagesStyle();
-				Console.WriteLine("");
-				Console.WriteLine("Warnings:");
-				foreach (var message in mailDaemonService.Warnings)
-				{
-					DisplayWarningMessage(message);
-				}
-			}
-
-			// if mail profile contains errors - stop execution
-			if (mailDaemonService.Errors.Count > 0)
-			{
-				WaitForExit();
-				return;
-			}
-
-			// if mail profile contains warnings - ask user to continue or not
-			if (mailDaemonService.Warnings.Count > 0)
-			{
-				Console.WriteLine("");
-				Console.Write("Continue? [Y/N]");
-
-				var confirmed = false;
-				string key;
-				while (!confirmed)
-				{
-					key = Console.ReadLine().ToLower();
-
-					if (key == "y")
-					{
-						confirmed = true;
-					}
-					if (key == "n")
-					{
-                        WaitForExit();
-						return;
-					}
-				}
-			}			
-
-			var counter = 0;
+            // perform recipients
+            var counter = 0;
 			var recipientsReport = new StringBuilder();
-			foreach (var recipient in mailDaemonService.MailProfile.Recipients)
+			foreach (var recipient in mailProfile.Recipients)
 			{
 				var recipientReportInfo = new StringBuilder();
 				try
-	        	{
+                {
+                    recipient.MailBodyTemplateFileName = mailProfile.MailBodyTemplateFileName;
+                    recipient.MailBody = mailProfile.MailBody;
+
                     // TBD: add support for HTML and plain text files
-					if (string.IsNullOrEmpty(recipient.MailBodyTemplateFilePath))
-                        recipient.MailBodyTemplateFilePath = mailDaemonService.MailProfile.MailBodyTemplateFilePath;
+                    if (!string.IsNullOrEmpty(recipient.MailBodyTemplateFullPath))
+                    {
+                        recipient.MailBodyTemplateFileName = mailProfile.MailBodyTemplateFullPath;
+                        recipient.MailBody = mailDaemonService.ReadMailBodyTemplate(recipient.MailBodyTemplateFullPath);
+                    }
 
-                    mailDaemonService.MailProfile.MailBody = mailDaemonService.ReadMailBodyTemplate(recipient.MailBodyTemplateFilePath);
+                    var mailMessage = mailMessageService.GenerateMailMessage(SettingsInfo.Operator, mailProfile, recipient);
 
-                    var mailMessage = mailDaemonService.GenerateMailMessage(recipient);
-
-					// display mail sending process
+                    // display mail sending process
                     counter++;
                     if (recipient.Skip.GetValueOrDefault())
                         Console.ForegroundColor = ConsoleColor.DarkGray;
 					else
                         Console.ForegroundColor = ConsoleColor.White;
-                    Console.WriteLine($"({counter}) {recipient.Company?.ToUpper()} {recipient.Name}");
+                    //Console.WriteLine($"({counter}) {recipient.Company?.ToUpper()} {recipient.Name}");
+                    Console.WriteLine($"({counter}) {recipient.Name}");
                     Console.WriteLine($"Mail: {recipient.Address}");
 					Console.WriteLine($"Subject: {mailMessage.Subject}");
-					Console.WriteLine($"Template: {(!string.IsNullOrEmpty(recipient.MailBodyTemplateFilePath) ? recipient.MailBodyTemplateFilePath : mailDaemonService.MailProfile.MailBodyTemplateFilePath)}");
+					Console.WriteLine($"Template: {(!string.IsNullOrEmpty(recipient.MailBodyTemplateFileName) ? recipient.MailBodyTemplateFileName : mailDaemonService.MailProfile.MailBodyTemplateFileName)}");
 
                     if (recipient.Skip.GetValueOrDefault())
                         recipientReportInfo.AppendLine("<div style=\"color: #999\">");
-                    recipientReportInfo.AppendLine($"({counter}) {recipient.Company?.ToUpper()} {recipient.Name} <a href=\"mailto:{recipient.Address}\">{recipient.Address}</a>");
+                    //recipientReportInfo.AppendLine($"({counter}) {recipient.Company?.ToUpper()} {recipient.Name} <a href=\"mailto:{recipient.Address}\">{recipient.Address}</a>");
+                    recipientReportInfo.AppendLine($"({counter}) {recipient.Name} <a href=\"mailto:{recipient.Address}\">{recipient.Address}</a>");
 					recipientReportInfo.AppendLine($"<div>Subject: {mailMessage.Subject}</div>");
-					if (!string.IsNullOrEmpty(recipient.MailBodyTemplateFilePath) && recipient.MailBodyTemplateFilePath != mailDaemonService.MailProfile.MailBodyTemplateFilePath)
-    					recipientReportInfo.AppendLine($"<div>Template: {recipient.MailBodyTemplateFilePath}</div>");
+					if (!string.IsNullOrEmpty(recipient.MailBodyTemplateFileName) && recipient.MailBodyTemplateFileName != mailDaemonService.MailProfile.MailBodyTemplateFileName)
+    					recipientReportInfo.AppendLine($"<div>Template: {recipient.MailBodyTemplateFileName}</div>");
 
                     // recipient related attachments use at first
                     if (recipient.Attachments != null)
@@ -297,11 +384,12 @@ namespace MailDaemon.ConsoleApp
                             var fileNamePrefix = "";
 							if (recipient.Skip.GetValueOrDefault())
                                 fileNamePrefix = "(skipped)_";
-                            var previewFilePath = Path.Combine(PreviewsDirPath, $"{fileNamePrefix}{recipient.Address}{Path.GetExtension(recipient.MailBodyTemplateFilePath)}");
+                            var previewFilePath = Path.Combine(PreviewsDirPath, $"{fileNamePrefix}{recipient.Address}{Path.GetExtension(recipient.MailBodyTemplateFileName)}");
                             File.WriteAllText(previewFilePath, mailMessage.Body);
                         }
                         catch (Exception ex)
                         {
+                            Log.Error(GenerateExceptionDetails(ex));
                             DisplayErrorMessage(ex.Message);
                         }
                     }
@@ -355,38 +443,28 @@ namespace MailDaemon.ConsoleApp
 				Thread.Sleep(mailDaemonService.SendSleep);
 			}
 
-            var report = GenerateReport(mailDaemonService, recipientsReport);
-            try
-            {
-                var reportFilePath = Path.Combine(ReportsDirPath, $"report_{Path.GetFileName(mailDaemonService.MailProfileFilename)}_{DateTime.Now:dd.MM.yyyy_HH-mm}.html");
-                File.WriteAllText(reportFilePath, report);
-            }
-            catch (Exception ex)
-            {
-				DisplayWarningMessage(ex.Message);
-                Console.Write("Press any key to continue...");
-                Console.ReadKey();
-            }
+            var report = GenerateReport(mailDaemonService, mailProfile, recipientsReport);
+            SaveReportFile(report);
 
             if (!mailDaemonService.JustValidate)
 			{
 				// send status report to sender
 				try
 				{
-					var mailMessage = new MailMessage();
-					mailMessage.To.Add(mailDaemonService.GetMailAddress(mailDaemonService.Operator.Address, mailDaemonService.Operator.Name));
-					mailMessage.From = mailDaemonService.GetMailAddress(mailDaemonService.MailProfile.Sender.Address, mailDaemonService.MailProfile.Sender.Name);
-					mailMessage.ReplyToList.Add(mailMessage.From);
-					mailMessage.Headers.Add("Reply-To", mailDaemonService.MailProfile.Sender.Address);
-					mailMessage.Subject = "Mail Daemon: mails has been sent";
-					mailMessage.SubjectEncoding = Encoding.UTF8;
-					mailMessage.IsBodyHtml = true;
-					mailMessage.BodyEncoding = Encoding.UTF8;
+                    var mailMessage = new MailMessage();
+                    mailMessage.To.Add(mailDaemonService.GetMailAddress(SettingsInfo.Operator.Address, SettingsInfo.Operator.Name));
+                    mailMessage.From = mailDaemonService.GetMailAddress(mailDaemonService.MailProfile.Sender.Address, mailDaemonService.MailProfile.Sender.Name);
+                    mailMessage.ReplyToList.Add(mailMessage.From);
+                    mailMessage.Headers.Add("Reply-To", mailDaemonService.MailProfile.Sender.Address);
+                    mailMessage.Subject = "Mail Daemon: mails has been sent";
+                    mailMessage.SubjectEncoding = Encoding.UTF8;
+                    mailMessage.IsBodyHtml = true;
+                    mailMessage.BodyEncoding = Encoding.UTF8;
                     mailMessage.Body = report;
 
-					mailAgent.Send(mailMessage);
+                    mailAgent.Send(mailMessage);
 
-					Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.ForegroundColor = ConsoleColor.Yellow;
 					Console.WriteLine("--- Mails has been sent ---");
 					Console.ForegroundColor = ConsoleColor.White;
 				}
@@ -397,16 +475,24 @@ namespace MailDaemon.ConsoleApp
 				}
 				Thread.Sleep(5000);
 			}
-			else
-			{
-				WaitForExit();
-			}
 
-			if (mailDaemonService.SendDemo)
+			if (mailDaemonService.JustValidate || mailDaemonService.SendDemo)
                 WaitForExit();
 		}
 
-        private static string GenerateReport(MailDaemonService mailDaemonService, StringBuilder recipientsReport)
+        private static string GenerateExceptionDetails(Exception ex)
+        {
+            var st = new StackTrace(ex, true);
+            var frame = st.GetFrame(0);
+            var fileName = frame.GetFileName();
+            var methodName = frame.GetMethod().Name;
+            var line = frame.GetFileLineNumber();
+            var col = frame.GetFileColumnNumber();
+
+            return $"File name: {fileName}{Environment.NewLine}Method: {methodName}{Environment.NewLine}Line: {line}{Environment.NewLine}Columns: {col}{Environment.NewLine}{ex}";
+        }
+
+        private static string GenerateReport(IMailDaemonService mailDaemonService, MailProfile mailProfile, StringBuilder recipientsReport)
         {
             var report = new StringBuilder();
             report.AppendLine("<!DOCTYPE html>");
@@ -416,9 +502,9 @@ namespace MailDaemon.ConsoleApp
             report.AppendLine("<title>Mail Daemon report</title>");
             report.AppendLine("</head>");
             report.AppendLine("<body>");
-            report.AppendLine($"<div>{mailDaemonService.MailProfile.Recipients.Count} mails has been sent.</div>");
-            report.AppendLine($"<div>Mail profile: \"{mailDaemonService.MailProfileFilename}\"</div>");
-            report.AppendLine($"<div>Mail template: \"{mailDaemonService.MailProfile.MailBodyTemplateFilePath}\"</div>");
+            report.AppendLine($"<div>{mailProfile.Recipients.Count} mails has been sent.</div>");
+            report.AppendLine($"<div>Mail profile: \"{SettingsInfo.MailProfile}\"</div>");
+            report.AppendLine($"<div>Mail template: \"{mailProfile.MailBodyTemplateFileName}\"</div>");
             report.AppendLine("<br/>");
             report.AppendLine($"<div><strong>Recipients:</strong></div>");
             report.AppendLine($"<div>{recipientsReport}</div>");
@@ -426,6 +512,22 @@ namespace MailDaemon.ConsoleApp
             report.AppendLine("</html>");
 
             return report.ToString();
+        }
+
+        private static void SaveReportFile(string report)
+        {
+            try
+            {
+                var reportFilePath = Path.Combine(ReportsDirPath, $"report_{Path.GetFileName(SettingsInfo.MailProfile)}_{DateTime.Now:dd.MM.yyyy_HH-mm}.html");
+                File.WriteAllText(reportFilePath, report);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(GenerateExceptionDetails(ex));
+                DisplayWarningMessage(ex.Message);
+                Console.Write("Press any key to continue...");
+                Console.ReadKey();
+            }
         }
 
         private static void SetErrorMessagesStyle()

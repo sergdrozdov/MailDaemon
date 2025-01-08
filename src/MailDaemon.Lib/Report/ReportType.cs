@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace MailDaemon.Lib.Report
+namespace MailDaemon.Core.Report
 {
     public enum ReportType
     {

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace MailDaemon.Lib.Report
+namespace MailDaemon.Core.Report
 {
     public class PlainTextReport : IReport
     {

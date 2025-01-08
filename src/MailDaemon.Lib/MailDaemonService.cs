@@ -5,8 +5,6 @@ using System.IO;
 using System.Net.Mail;
 using System.Runtime.CompilerServices;
 using System.Text;
-using MailDaemon.Lib;
-using MailDaemon.Core;
 
 namespace MailDaemon.Core
 {
@@ -38,17 +36,17 @@ namespace MailDaemon.Core
 			Warnings = new List<string>();
 		}
 
-        public void ReadMailProfile()
-		{
-            try
-            {
-                MailProfile = JsonConvert.DeserializeObject<MailProfile>(File.ReadAllText(MailProfileFilename));
-            }
-            catch (Exception ex)
-            {
-               throw new Exception(ex.Message);
-            }
-        }
+  //      public void ReadMailProfile()
+		//{
+  //          try
+  //          {
+  //              MailProfile = JsonConvert.DeserializeObject<MailProfile>(File.ReadAllText(MailProfileFilename));
+  //          }
+  //          catch (Exception ex)
+  //          {
+  //             throw new Exception(ex.Message);
+  //          }
+  //      }
 
 		public string ReadMailBodyTemplate(string filePath)
 		{
@@ -169,7 +167,7 @@ namespace MailDaemon.Core
             }
 
 			// validate mail template
-			if (string.IsNullOrEmpty(MailProfile.MailBodyTemplateFilePath))
+			if (string.IsNullOrEmpty(MailProfile.MailBodyTemplateFileName))
 			{
 				Errors.Add(new MessageInfo
                     {
@@ -180,11 +178,11 @@ namespace MailDaemon.Core
 			}
 			else
 			{
-				if (!File.Exists(MailProfile.MailBodyTemplateFilePath))
+				if (!File.Exists(MailProfile.MailBodyTemplateFileName))
 				{
 					Errors.Add(new MessageInfo
                         {
-                            Message = $"Mail body template file \"{MailProfile.MailBodyTemplateFilePath}\" not exists.",
+                            Message = $"Mail body template file \"{MailProfile.MailBodyTemplateFileName}\" not exists.",
                             IsCritical = true
                         }
                     );
@@ -236,21 +234,21 @@ namespace MailDaemon.Core
 
 		public MailMessage GenerateMailMessage(RecipientInfo recipientInfo)
 		{
-			var mailMessage = new MailMessage();		
+			var mailMessage = new MailMessage();
 			
 			if (SendDemo)
 			{
                 // send as demo to sender
-                mailMessage.To.Add(GetMailAddress(Operator.Address, Operator.Name));
                 mailMessage.From = GetMailAddress(MailProfile.Sender.Address, MailProfile.Sender.Name);
+                mailMessage.To.Add(GetMailAddress(Operator.Address, Operator.Name));
                 mailMessage.ReplyToList.Add(mailMessage.From);
                 mailMessage.Headers.Add("Reply-To", MailProfile.Sender.Address);
 			}
 			else
 			{
                 // send to recipient
-                mailMessage.To.Add(GetMailAddress(recipientInfo.Address, recipientInfo.Name));
                 mailMessage.From = GetMailAddress(MailProfile.Sender.Address, MailProfile.Sender.Name);
+                mailMessage.To.Add(GetMailAddress(recipientInfo.Address, recipientInfo.Name));
                 mailMessage.ReplyToList.Add(mailMessage.From);
                 mailMessage.Headers.Add("Reply-To", MailProfile.Sender.Address);
 			}
@@ -260,7 +258,7 @@ namespace MailDaemon.Core
 			if (SendDemo)
 				mailMessage.Subject += " [DEMO MAIL]";
 
-			if (Path.GetExtension(recipientInfo.MailBodyTemplateFilePath).ToLower() != ".txt")
+			if (string.Equals(Path.GetExtension(recipientInfo.MailBodyTemplateFileName).ToLower(), ".html", StringComparison.InvariantCultureIgnoreCase))
 			    mailMessage.IsBodyHtml = true;
 
 			mailMessage.BodyEncoding = Encoding.UTF8;
@@ -303,9 +301,9 @@ namespace MailDaemon.Core
 		public string FormatMessageSubject(RecipientInfo recipientInfo)
 		{
 			var subject = !string.IsNullOrEmpty(recipientInfo.Subject) ? recipientInfo.Subject : MailProfile.Subject;
-			subject = subject
-				.Replace("{PERSON_NAME}", recipientInfo.Name)
-				.Replace("{COMPANY_NAME}", recipientInfo.Company);
+			//subject = subject
+			//	.Replace("{PERSON_NAME}", recipientInfo.Name)
+			//	.Replace("{COMPANY_NAME}", recipientInfo.Company);
 			
 			return subject;
 		}
@@ -313,17 +311,17 @@ namespace MailDaemon.Core
 		public string FormatMessageBody(RecipientInfo recipientInfo)
 		{
 			var body = !string.IsNullOrEmpty(recipientInfo.MailBody) ? recipientInfo.MailBody : MailProfile.MailBody;
-			body = body
-				.Replace("{PERSON_NAME}", recipientInfo.Name)
-				.Replace("{COMPANY_NAME}", recipientInfo.Company)
-                .Replace("{CONTACT_PERSON}", recipientInfo.ContactPerson);
+			//body = body
+			//	.Replace("{PERSON_NAME}", recipientInfo.Name)
+			//	.Replace("{COMPANY_NAME}", recipientInfo.Company)
+   //             .Replace("{CONTACT_PERSON}", recipientInfo.ContactPerson);
 
             // recipient's replacement dictionary has higher priority
             if (recipientInfo.Replace != null)
             {
                 foreach (var replaceData in recipientInfo.Replace)
                 {
-                    body = body.Replace("{" + replaceData.Key + "}", replaceData.Value, StringComparison.InvariantCultureIgnoreCase);
+                    body = body.Replace(replaceData.Key, replaceData.Value, StringComparison.InvariantCultureIgnoreCase);
                 }
             }
 
@@ -331,11 +329,11 @@ namespace MailDaemon.Core
             {
                 foreach (var replaceData in MailProfile.Replace)
                 {
-                    body = body.Replace("{" + replaceData.Key + "}", replaceData.Value, StringComparison.InvariantCultureIgnoreCase);
+                    body = body.Replace(replaceData.Key, replaceData.Value, StringComparison.InvariantCultureIgnoreCase);
                 }
             }
 
             return body;
 		}
-	}
+    }
 }

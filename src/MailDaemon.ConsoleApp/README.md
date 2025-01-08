@@ -21,17 +21,31 @@ MailProfiles – folder to store JSON mail profiles.
 MailTemplates – folder to store mail templates.
 
 
+Application settings
+-------------------------------------------------
+Initial configuration is located in appSettings.json
+
+
+
 Mail profile
 -------------------------------------------------
 | Value         | Description
 | ------------- | ------------
+| operator      | Lnformation about SMTP relay user.
 | **sender**    | **address** is required value.
-| **subject**   | is required value.
-| **template**  | is required value
-| **recipients**| **address** is required value.
+| **subject**   | Is required value.
+| **template**  | Is required value
+| **recipients**| List of mail recipients. **address** is required value.
+| attachments   | List of mail attachments.
+| replace       | Contains key/value placeholders for text replace.
 ```
 mailProfile_Default.json
 {
+    "operator":
+    {
+        "address": "<mail address>",
+        "name": "<name>"
+    },
     "sender":
     {
         "address": "<mail address>",
@@ -66,8 +80,8 @@ mailProfile_Default.json
     ],
     "replace":
     {
-        "text1": "replace text",
-        "text2": "replace text"
+        "{text1}": "replace text",
+        "{text2}": "replace text"
     }}
 ```
 
@@ -88,5 +102,5 @@ mail-daemon **-v -d**
 Run Mail Daemon with creation of generated mail files.\
 mail-daemon **-gp**
 
-Run Mail Daemon with custom mail profile.\
+Run Mail Daemon with custom mail profile, value in appSettings.json is ignored.\
 mail-daemon **-p custom-profile.json**

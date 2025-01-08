@@ -17,19 +17,24 @@ namespace MailDaemon.Core
 		[JsonProperty("subject")]
 		public string Subject { get; set; }
 
-		/// <summary>
-		/// Path to mail template file.
-		/// </summary>
-		[JsonProperty("template")]
-		public string MailBodyTemplateFilePath { get; set; }
+        /// <summary>
+        /// Mail template file name.
+        /// </summary>
+        [JsonProperty("template")]
+        public string MailBodyTemplateFileName { get; set; } = "";
 
-		public string MailBody { get; set; }
+        /// <summary>
+        /// Path to mail template file.
+        /// </summary>
+        public string MailBodyTemplateFullPath { get; set; } = "";
 
-		[JsonProperty("company")]
-		public string Company { get; set; }
+        public string MailBody { get; set; }
 
-        [JsonProperty("contact_person")]
-        public string ContactPerson { get; set; }
+		//[JsonProperty("company")]
+		//public string Company { get; set; }
+
+  //      [JsonProperty("contact_person")]
+  //      public string ContactPerson { get; set; }
 
         /// <summary>
         /// List of data to replace text in the mail body template.

@@ -1,4 +1,4 @@
-﻿namespace MailDaemon.Lib.Report
+﻿namespace MailDaemon.Core.Report
 {
     public interface IReport
     {

@@ -1,4 +1,4 @@
-﻿namespace MailDaemon.Lib
+﻿namespace MailDaemon.Core
 {
     public interface IValidator
     {

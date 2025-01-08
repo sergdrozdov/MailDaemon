@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Net.Mail;
-using MailDaemon.Lib;
 
 namespace MailDaemon.Core
 {
@@ -18,6 +17,9 @@ namespace MailDaemon.Core
         /// </summary>
         bool SendDemo { get; set; }
 
+        // Generate output files of processed mail messages.
+        bool GeneratePreview { get; set; }
+
         /// <summary>
         /// Delay sending mail to avoid stressful SMTP server.
         /// </summary>
@@ -29,7 +31,7 @@ namespace MailDaemon.Core
 
         MailProfile MailProfile { get; set; }
 
-        void ReadMailProfile();
+        
         void ValidateMailProfile();
         void AddError(string errorMessage, bool isCritical);
         string ReadMailBodyTemplate(string filePath);      

@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace MailDaemon.Lib.Report
+namespace MailDaemon.Core.Report
 {
     public class ReportInfo
     {
