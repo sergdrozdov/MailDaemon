@@ -361,3 +361,8 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+/src/MailDaemon.ConsoleApp/MailProfiles/mailProfile_Test.json
+/src/MailDaemon.ConsoleApp/MailTemplates/MailBody_Test.html
+/src/MailDaemon.ConsoleApp/appSettings.Development.json
+/src/MailDaemon.ConsoleApp/MailTemplates/MailBody_TestCustom.html
+/src/MailDaemon.ConsoleApp/MailTemplates/MailBody_TestText.txt
