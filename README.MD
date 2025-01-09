@@ -4,7 +4,7 @@
 ## About
 Utility to send mails with customizable settings. This non-profit, open source pet-project is constantly being supplemented, changed, and refined.
 
-This project has no end date, it is a space for experiments.
+This project has no end date, it is a space for experiments. Nobody knows the path of development of this project, new opportunities appear as needed.
 
 ## License
 All contents of this package are licensed under the [![Licence](https://img.shields.io/github/license/Ileriayo/markdown-badges?style=for-the-badge)](https://opensource.org/licenses/MIT)
