@@ -15,7 +15,9 @@
         /// Profile file name.
         /// </summary>
         public string MailProfile { get; set; }
-        
+
+        public string MailProfileFullPath { get; set; }
+
         public SenderInfo Operator { get; set; }
     }
 }

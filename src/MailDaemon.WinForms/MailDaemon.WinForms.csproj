@@ -9,4 +9,14 @@
     <RepositoryUrl>https://github.com/sergdrozdov/MailDaemon</RepositoryUrl>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\MailDaemon.Lib\MailDaemon.Lib.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appSettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

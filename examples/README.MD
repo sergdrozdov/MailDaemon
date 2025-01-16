@@ -1,0 +1,1 @@
+Examples of mail profiles and templates, various usage scenarios.

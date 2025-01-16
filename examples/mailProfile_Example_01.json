@@ -1,0 +1,26 @@
+{
+	"sender": {
+		"address": "<mail address>",
+		"name": "<name>"
+	},
+	"subject": "Mail subject",
+	"template": "MailBody_Example_01.html",
+	"attachments": [
+    { "path": "attachment.txt" }
+  ],
+	"recipients": [
+		{
+			"address": "<mail address>",
+			"name": "<name>",
+			"subject": "Custom subject",
+			"replace": {
+				"{rec_text1}": "rec replace text",
+				"{rec_text2}": "rec replace text"
+			}
+		}
+	],
+	"replace": {
+		"{text1}": "replace text",
+		"{text2}": "replace text"
+	}
+}

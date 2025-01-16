@@ -12,6 +12,7 @@ using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Json;
 using System.Diagnostics;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace MailDaemon.ConsoleApp
 {
@@ -26,7 +27,8 @@ namespace MailDaemon.ConsoleApp
         private static bool DisplayHelp;
 		private static string PreviewsDirPath { get; set; }
 		private static string ReportsDirPath { get; set; }
-		//private static string AppDir { get; set; }
+        //private static string AppDir { get; set; }
+        private static string DiagMessage { get; set; }
 
         private static void Main(string[] args)
         {
@@ -57,8 +59,11 @@ namespace MailDaemon.ConsoleApp
             {
                 // settings can be loaded from another source, e.g. database.
                 SettingsInfo.MailProfile = config["App:MailProfile"];
-                mailProfile.MailBodyTemplateFileName = SettingsInfo.MailProfile;
-                Log.Information($"Profile template: \"{mailProfile.MailBodyTemplateFileName}\"");
+                //mailProfile.MailBodyTemplateFileName = SettingsInfo.MailProfile;
+                DiagMessage = $"Mail profile: \"{SettingsInfo.MailProfile}\"";
+                Log.Information(DiagMessage);
+                Console.WriteLine(DiagMessage);
+                ResetDiagMessage();
 
                 SettingsInfo.SmtpHost = config["MailServer:SmtpHost"];
                 SettingsInfo.SmtpPort = Convert.ToInt32(config["MailServer:SmtpPort"]);
@@ -93,6 +98,8 @@ namespace MailDaemon.ConsoleApp
             catch (Exception ex)
             {
                 Log.Fatal(GenerateExceptionDetails(ex));
+                DisplayErrorMessage(ex.Message);
+                WaitForExit();
             }
 
             if (args.Length > 0)
@@ -115,9 +122,13 @@ namespace MailDaemon.ConsoleApp
                                 mailDaemonService.GeneratePreview = true;
                                 break;
                             case "-p":
-                                mailProfile.MailBodyTemplateFileName = args[argIndex + 1];
-                                mailProfile.MailBodyTemplateFullPath = Path.Combine(SettingsInfo.AppDirectory, SettingsInfo.MailProfilesDirectory, mailProfile.MailBodyTemplateFileName);
-                                Log.Information($"Profile new template: \"{mailProfile.MailBodyTemplateFileName}\"");
+                                SettingsInfo.MailProfile = args[argIndex + 1];
+                                //mailProfile.MailBodyTemplateFileName = args[argIndex + 1];
+                                //mailProfile.MailBodyTemplateFullPath = Path.Combine(SettingsInfo.AppDirectory, SettingsInfo.MailProfilesDirectory, mailProfile.MailBodyTemplateFileName);
+                                DiagMessage = $"Mail profile new name: \"{SettingsInfo.MailProfile}\"";
+                                Log.Information(DiagMessage);
+                                Console.WriteLine(DiagMessage);
+                                ResetDiagMessage();
                                 break;
                             case "-h":
                                 DisplayHelp = true;
@@ -148,7 +159,10 @@ namespace MailDaemon.ConsoleApp
 
             if (!string.IsNullOrEmpty(mailDaemonService.MailProfileFilename) && !File.Exists(mailDaemonService.MailProfileFilename))
             {
-                DisplayErrorMessage($"Mail profile \"{mailDaemonService.MailProfileFilename}\" not exists.");
+                DiagMessage = $"Mail profile \"{mailDaemonService.MailProfileFilename}\" not exists.";
+                DisplayErrorMessage(DiagMessage);
+                Log.Fatal(DiagMessage);
+                WaitForExit();
                 return;
             }
 
@@ -162,17 +176,24 @@ namespace MailDaemon.ConsoleApp
             if (mailDaemonService.JustValidate)
 			{
 				Console.ForegroundColor = ConsoleColor.Yellow;
-				Console.WriteLine("--- Validation mode: do not send any mail. Just validate mail profile and recipients.");
+                DiagMessage = "--- Validation mode: do not send any mail. Just validate mail profile and recipients.";
+                Log.Information(DiagMessage);
+				Console.WriteLine(DiagMessage);
 				Console.WriteLine("");
 				Console.ResetColor();
+                ResetDiagMessage();
 			}
 
-            Log.Information($"Application directory: {SettingsInfo.AppDirectory}");
+            DiagMessage = $"Application directory: {SettingsInfo.AppDirectory}";
+            Console.WriteLine(DiagMessage);
+            Log.Information(DiagMessage);
+            ResetDiagMessage();
 
+            SettingsInfo.MailProfileFullPath = Path.Combine(SettingsInfo.AppDirectory, SettingsInfo.MailProfilesDirectory, SettingsInfo.MailProfile);
             try
             {
                 //mailDaemonService.MailProfile = mailProfileService.ReadProfile();
-                mailProfile = mailProfileService.ReadProfile(Path.Combine(SettingsInfo.AppDirectory, SettingsInfo.MailProfilesDirectory, SettingsInfo.MailProfile));
+                mailProfile = mailProfileService.ReadProfile(SettingsInfo.MailProfileFullPath);
             }
             catch (Exception ex)
             {
@@ -196,8 +217,10 @@ namespace MailDaemon.ConsoleApp
                     SetErrorMessagesStyle();
                     Console.WriteLine("");
                     Console.WriteLine("Errors:");
+                    Log.Error("Errors:");
                     foreach (var item in profileValidation.Where(x => x.Level == ValidationLevel.Error))
                     {
+                        Log.Error(item.Message);
                         DisplayErrorMessage(item.Message);
                     }
                 }
@@ -208,8 +231,10 @@ namespace MailDaemon.ConsoleApp
                     SetWarningMessagesStyle();
                     Console.WriteLine("");
                     Console.WriteLine("Warnings:");
+                    Log.Warning("Warnings:");
                     foreach (var item in profileValidation.Where(x => x.Level == ValidationLevel.Warning))
                     {
+                        Log.Warning(item.Message);
                         DisplayWarningMessage(item.Message);
                     }
                 }
@@ -281,6 +306,7 @@ namespace MailDaemon.ConsoleApp
             catch (Exception ex)
             {
                 Log.Fatal(GenerateExceptionDetails(ex));
+                DisplayErrorMessage(ex.Message);
                 WaitForExit();
                 return;
             }
@@ -288,7 +314,7 @@ namespace MailDaemon.ConsoleApp
             // perform recipients
             var counter = 0;
 			var recipientsReport = new StringBuilder();
-			foreach (var recipient in mailProfile.Recipients)
+			foreach (var recipient in mailProfile.Recipients.Where(x => !x.Skip.GetValueOrDefault()))
 			{
 				var recipientReportInfo = new StringBuilder();
 				try
@@ -528,6 +554,11 @@ namespace MailDaemon.ConsoleApp
                 Console.Write("Press any key to continue...");
                 Console.ReadKey();
             }
+        }
+
+        private static void ResetDiagMessage()
+        {
+            DiagMessage = "";
         }
 
         private static void SetErrorMessagesStyle()
