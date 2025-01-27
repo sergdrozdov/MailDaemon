@@ -21,10 +21,10 @@ namespace MailDaemon.WinForms
 
             mailProfile = new MailProfile();
 
-            SettingsInfo.MailProfile = "mailSettings_RepeatJob - 2025-01-09.json";
+            SettingsInfo.MailProfileFileName = "mailSettings_RepeatJob - 2025-01.json";
             SettingsInfo.Operator = new SenderInfo() { Address = "test@test.com"};
-            mailProfile.MailBodyTemplateFileName = SettingsInfo.MailProfile;
-            mailProfile.MailBodyTemplateFullPath = "D:\\Programs\\MailDaemon\\MailProfiles\\mailSettings_RepeatJob - 2025-01-09.json";
+            mailProfile.MailBodyTemplateFileName = SettingsInfo.MailProfileFileName;
+            mailProfile.MailBodyTemplateFullPath = "D:\\Programs\\MailDaemon\\MailProfiles\\mailSettings_RepeatJob - 2025-01.json";
 
             InitializeComponent();
 
@@ -33,7 +33,15 @@ namespace MailDaemon.WinForms
 
         private void LoadProfile()
         {
-            mailProfile = mailProfileService.ReadProfile(mailProfile.MailBodyTemplateFullPath);
+            try
+            {
+                mailProfile = mailProfileService.ReadProfile(mailProfile.MailBodyTemplateFullPath);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Information", MessageBoxButtons.OK);
+            }
+
             mailProfile.MailBody = ""; // stub
             listRecipients.Items.Clear();
 

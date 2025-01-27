@@ -6,7 +6,7 @@
 	"subject": "Mail subject",
 	"template": "MailBody_Example_01.html",
 	"attachments": [
-    { "path": "attachment.txt" }
+    { "path": ".\\attachment.txt" }
   ],
 	"recipients": [
 		{

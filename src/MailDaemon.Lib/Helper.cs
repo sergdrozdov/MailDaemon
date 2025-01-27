@@ -33,5 +33,18 @@ namespace MailDaemon.Core
                     return MediaTypeNames.Application.Octet;
             }
         }
+
+        //public static string GetMailProfileFullPath(SettingsInfo settingsInfo, string fileName)
+        //{
+
+        //}
+
+        public static string GetMailBodyTemplateFullPath(SettingsInfo settingsInfo, string fileName)
+        {
+            if (fileName.StartsWith(".\\"))
+                return Path.Combine(settingsInfo.AppDirectory, fileName.Replace(".\\", ""));
+            
+            return Path.Combine(settingsInfo.AppDirectory, settingsInfo.MailProfilesDirectory, fileName);
+        }
     }
 }

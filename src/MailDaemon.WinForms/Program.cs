@@ -1,3 +1,6 @@
+using Microsoft.Extensions.Configuration;
+using Serilog;
+
 namespace MailDaemon.WinForms
 {
     internal static class Program
