@@ -10,6 +10,7 @@ using MailDaemon.Lib;
 using Serilog;
 using Serilog.Events;
 using System.Diagnostics;
+using MailDaemon.Core.Report;
 
 namespace MailDaemon.ConsoleApp
 {
@@ -19,8 +20,9 @@ namespace MailDaemon.ConsoleApp
         private static IMailDaemonService mailDaemonService;
         private static IMailProfileService mailProfileService;
         private static IMailMessageService mailMessageService;
-        private static MailProfile mailProfile { get; set; }
-        private static MailAgent mailAgent = new();
+        private static MailProfile MailProfile { get; set; }
+        private static ReportInfo ReportInfo { get; set; }
+        private static MailAgent _mailAgent = new();
         private static bool DisplayHelp { get; set; }
         private static string PreviewsDirPath { get; set; }
 		private static string ReportsDirPath { get; set; }
@@ -47,11 +49,12 @@ namespace MailDaemon.ConsoleApp
 			mailDaemonService = new MailDaemonService();
 			mailProfileService = new JsonMailProfileService();
             mailMessageService = new MailMessageService();
-            mailAgent = new MailAgent();
+            _mailAgent = new MailAgent();
             
             SettingsInfo.AppDirectory = AppDomain.CurrentDomain.BaseDirectory;
 
-            mailProfile = new MailProfile();
+            ReportInfo = new ReportInfo();
+            MailProfile = new MailProfile();
             try
             {
                 // settings can be loaded from another source, e.g. database.
@@ -68,12 +71,12 @@ namespace MailDaemon.ConsoleApp
                 SettingsInfo.SmtpPassword = config["MailServer:SmtpPassword"];
                 SettingsInfo.SmtpEnableSSL = Convert.ToBoolean(config["MailServer:SmtpEnableSSL"]);
 
-                if (mailProfile.Operator is not null && !string.IsNullOrEmpty(mailProfile.Operator.Address))
+                if (MailProfile.Operator is not null && !string.IsNullOrEmpty(MailProfile.Operator.Address))
                 {
                     SettingsInfo.Operator = new SenderInfo
                     {
-                        Address = mailProfile.Operator.Address,
-                        Name = mailProfile.Operator.Name
+                        Address = MailProfile.Operator.Address,
+                        Name = MailProfile.Operator.Name
                     };
                 }
                 else
@@ -86,11 +89,11 @@ namespace MailDaemon.ConsoleApp
                 }
 
                 // set SMTP server information
-                mailAgent.SmtpHost = SettingsInfo.SmtpHost;
-                mailAgent.SmtpPort = SettingsInfo.SmtpPort;
-                mailAgent.SmtpUsername = SettingsInfo.SmtpUsername;
-                mailAgent.SmtpPassword = SettingsInfo.SmtpPassword;
-                mailAgent.SmtpEnableSSL = SettingsInfo.SmtpEnableSSL;
+                _mailAgent.SmtpHost = SettingsInfo.SmtpHost;
+                _mailAgent.SmtpPort = SettingsInfo.SmtpPort;
+                _mailAgent.SmtpUsername = SettingsInfo.SmtpUsername;
+                _mailAgent.SmtpPassword = SettingsInfo.SmtpPassword;
+                _mailAgent.SmtpEnableSSL = SettingsInfo.SmtpEnableSSL;
             }
             catch (Exception ex)
             {
@@ -190,7 +193,7 @@ namespace MailDaemon.ConsoleApp
             try
             {
                 //mailDaemonService.MailProfile = mailProfileService.ReadProfile();
-                mailProfile = mailProfileService.ReadProfile(SettingsInfo.MailProfileFullPath);
+                MailProfile = mailProfileService.ReadProfile(SettingsInfo.MailProfileFullPath);
             }
             catch (Exception ex)
             {
@@ -200,9 +203,9 @@ namespace MailDaemon.ConsoleApp
                 return;
             }
 
-            mailProfile.MailBodyTemplateFullPath = Helper.GetMailBodyTemplateFullPath(SettingsInfo, mailProfile.MailBodyTemplateFileName);
+            MailProfile.MailBodyTemplateFullPath = Helper.GetMailBodyTemplateFullPath(SettingsInfo, MailProfile.MailBodyTemplateFileName);
 
-            var profileValidation = mailProfileService.ValidateMailProfile(mailProfile);
+            var profileValidation = mailProfileService.ValidateMailProfile(MailProfile);
             if (profileValidation.Count > 0)
             {
                 // show errors
@@ -295,7 +298,7 @@ namespace MailDaemon.ConsoleApp
 
             try
             {
-                mailProfile.MailBody = mailProfileService.ReadMailBodyTemplate(mailProfile.MailBodyTemplateFullPath);
+                MailProfile.MailBody = mailProfileService.ReadMailBodyTemplate(MailProfile.MailBodyTemplateFullPath);
             }
             catch (Exception ex)
             {
@@ -307,17 +310,17 @@ namespace MailDaemon.ConsoleApp
 
             // perform recipients
             var counter = 0;
-			var recipientsReport = new StringBuilder();
-			foreach (var recipient in mailProfile.Recipients.Where(x => !x.Skip.GetValueOrDefault()))
+            var recipientsReport = new StringBuilder();
+			foreach (var recipient in MailProfile.Recipients.Where(x => !x.Skip.GetValueOrDefault()))
 			{
 				var recipientReportInfo = new StringBuilder();
 				try
                 {
                     if (string.IsNullOrEmpty(recipient.MailBodyTemplateFileName))
                     {
-                        recipient.MailBodyTemplateFileName = mailProfile.MailBodyTemplateFileName;
-                        recipient.MailBodyTemplateFullPath = mailProfile.MailBodyTemplateFullPath;
-                        recipient.MailBody = mailProfile.MailBody;
+                        recipient.MailBodyTemplateFileName = MailProfile.MailBodyTemplateFileName;
+                        recipient.MailBodyTemplateFullPath = MailProfile.MailBodyTemplateFullPath;
+                        recipient.MailBody = MailProfile.MailBody;
                     }
                     else
                     {
@@ -329,14 +332,19 @@ namespace MailDaemon.ConsoleApp
                         }
                     }
 
-                    var mailMessage = mailMessageService.GenerateMailMessage(SettingsInfo.Operator, mailProfile, recipient);
+                    var mailMessage = mailMessageService.GenerateMailMessage(SettingsInfo.Operator, MailProfile, recipient);
 
                     // display mail sending process
                     counter++;
+                    ReportInfo.RecipientsCount++;
                     if (recipient.Skip.GetValueOrDefault())
+                    {
                         Console.ForegroundColor = ConsoleColor.DarkGray;
-					else
+                    }
+                    else
+                    {
                         Console.ForegroundColor = ConsoleColor.White;
+                    }
                     //Console.WriteLine($"({counter}) {recipient.Company?.ToUpper()} {recipient.Name}");
                     Console.WriteLine($"({counter}) {recipient.Name}");
                     Console.WriteLine($"Mail: {recipient.Address}");
@@ -370,9 +378,9 @@ namespace MailDaemon.ConsoleApp
                     }
 
                     // attachments
-                    if (mailDaemonService.MailProfile.Attachments != null)
+                    if (MailProfile.Attachments != null)
 					{
-						foreach (var attachment in mailDaemonService.MailProfile.Attachments)
+						foreach (var attachment in MailProfile.Attachments)
 						{
 							if (File.Exists(attachment.Path))
 							{
@@ -396,7 +404,7 @@ namespace MailDaemon.ConsoleApp
                     if (mailDaemonService.SendDemo)
 					{
 						Console.ForegroundColor = ConsoleColor.Cyan;
-						Console.WriteLine($"--- Send demo to sender address: {mailProfile.Sender.Address} ---");
+						Console.WriteLine($"--- Send demo to sender address: {MailProfile.Sender.Address} ---");
 						Console.ResetColor();
                     }
 
@@ -424,6 +432,7 @@ namespace MailDaemon.ConsoleApp
 					{
                         if (recipient.Skip.GetValueOrDefault())
                         {
+                            ReportInfo.SkippedMailCount++;
                             Console.ForegroundColor = ConsoleColor.Cyan;
                             Console.WriteLine("--- Skipped ---");
                             Console.ResetColor();
@@ -431,14 +440,19 @@ namespace MailDaemon.ConsoleApp
                         }
                         else
                         {
-                            var mailSendResult = mailAgent.Send(mailMessage);
+                            var mailSendResult = _mailAgent.Send(mailMessage);
+                            Log.Information($"Send to: {recipient.Address}");
 
 						    if (!mailSendResult.Success)
 						    {
+                                ReportInfo.ErrorsMailCount++;
+                                Log.Error($"  Error sending to: {recipient.Address}");
 							    DisplayErrorMessage(mailSendResult.Message);
 						    }
 						    else
-						    {
+                            {
+                                ReportInfo.SentMailCount++;
+                                Log.Information($"  Sent to: {recipient.Address}");
 							    Console.ForegroundColor = ConsoleColor.Green;
 							    Console.WriteLine("--- Sent ---");
 							    Console.ResetColor();
@@ -450,6 +464,7 @@ namespace MailDaemon.ConsoleApp
                     {
                         if (recipient.Skip.GetValueOrDefault())
                         {
+                            ReportInfo.SkippedMailCount++;
                             Console.ForegroundColor = ConsoleColor.Cyan;
                             Console.WriteLine("--- Skipped ---");
                             Console.ResetColor();
@@ -467,33 +482,34 @@ namespace MailDaemon.ConsoleApp
 
 				recipientReportInfo.AppendLine("<br/>");
 				recipientsReport.AppendLine(recipientReportInfo.ToString());
-				Thread.Sleep(mailDaemonService.SendSleep);
+                ReportInfo.Body = recipientsReport.ToString();
+                Thread.Sleep(mailDaemonService.SendSleep);
 			}
 
-            var report = GenerateReport(mailDaemonService, mailProfile, recipientsReport);
+            var report = GenerateReport(mailDaemonService, MailProfile, ReportInfo);
             SaveReportFile(report);
 
             if (!mailDaemonService.JustValidate)
 			{
 				try
                 {
-                    DiagMessage = $"--- Send status report to sender: {mailProfile.Sender.Address} ---";
+                    DiagMessage = $"--- Send status report to sender: {MailProfile.Sender.Address} ---";
                     Log.Information(DiagMessage);
                     Console.WriteLine(DiagMessage);
                     ResetDiagMessage();
 
                     var mailMessage = new MailMessage();
                     mailMessage.To.Add(mailDaemonService.GetMailAddress(SettingsInfo.Operator.Address, SettingsInfo.Operator.Name));
-                    mailMessage.From = mailDaemonService.GetMailAddress(mailProfile.Sender.Address, mailProfile.Sender.Name);
+                    mailMessage.From = mailDaemonService.GetMailAddress(MailProfile.Sender.Address, MailProfile.Sender.Name);
                     mailMessage.ReplyToList.Add(mailMessage.From);
-                    mailMessage.Headers.Add("Reply-To", mailProfile.Sender.Address);
+                    mailMessage.Headers.Add("Reply-To", MailProfile.Sender.Address);
                     mailMessage.Subject = "Mail Daemon: mails has been sent";
                     mailMessage.SubjectEncoding = Encoding.UTF8;
                     mailMessage.IsBodyHtml = true;
                     mailMessage.BodyEncoding = Encoding.UTF8;
                     mailMessage.Body = report;
 
-                    mailAgent.Send(mailMessage);
+                    _mailAgent.Send(mailMessage);
 
                     Console.ForegroundColor = ConsoleColor.Yellow;
 					Console.WriteLine("--- Mails has been sent ---");
@@ -524,7 +540,7 @@ namespace MailDaemon.ConsoleApp
             return $"File name: {fileName}{Environment.NewLine}Method: {methodName}{Environment.NewLine}Line: {line}{Environment.NewLine}Columns: {col}{Environment.NewLine}{ex}";
         }
 
-        private static string GenerateReport(IMailDaemonService mailDaemonService, MailProfile mailProfile, StringBuilder recipientsReport)
+        private static string GenerateReport(IMailDaemonService mailDaemonService, MailProfile mailProfile, ReportInfo reportInfo)
         {
             var report = new StringBuilder();
             report.AppendLine("<!DOCTYPE html>");
@@ -534,12 +550,15 @@ namespace MailDaemon.ConsoleApp
             report.AppendLine("<title>Mail Daemon report</title>");
             report.AppendLine("</head>");
             report.AppendLine("<body>");
-            report.AppendLine($"<div>{mailProfile.Recipients.Count} mails has been sent.</div>");
             report.AppendLine($"<div>Mail profile: \"{SettingsInfo.MailProfileFileName}\"</div>");
             report.AppendLine($"<div>Mail template: \"{mailProfile.MailBodyTemplateFileName}\"</div>");
+            report.AppendLine($"<div>Total recipients: {mailProfile.Recipients.Count}</div>");
+            report.AppendLine($"<div>Sent mails: {reportInfo.SentMailCount}</div>");
+            report.AppendLine($"<div>Skipped mails: {reportInfo.SkippedMailCount}</div>");
+            report.AppendLine($"<div>Errors: {reportInfo.ErrorsMailCount}</div>");
             report.AppendLine("<br/>");
             report.AppendLine($"<div><strong>Recipients:</strong></div>");
-            report.AppendLine($"<div>{recipientsReport}</div>");
+            report.AppendLine($"<div>{reportInfo.Body}</div>");
             report.AppendLine("</body>");
             report.AppendLine("</html>");
 
