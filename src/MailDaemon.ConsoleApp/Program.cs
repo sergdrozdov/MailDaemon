@@ -25,15 +25,15 @@ namespace MailDaemon.ConsoleApp
         private static MailAgent _mailAgent = new();
         private static bool DisplayHelp { get; set; }
         private static string PreviewsDirPath { get; set; }
-		private static string ReportsDirPath { get; set; }
+        private static string ReportsDirPath { get; set; }
         //private static string AppDir { get; set; }
         private static string DiagMessage { get; set; }
 
         private static void Main(string[] args)
         {
             var configBuilder = new ConfigurationBuilder()
-				.SetBasePath(AppContext.BaseDirectory)
-				.AddJsonFile("appSettings.json", optional: false);
+                .SetBasePath(AppContext.BaseDirectory)
+                .AddJsonFile("appSettings.json", optional: false);
 
             var config = configBuilder.Build();
 
@@ -45,9 +45,9 @@ namespace MailDaemon.ConsoleApp
 
             Log.Information("Start application.");
 
-			SettingsInfo = new SettingsInfo();
-			mailDaemonService = new MailDaemonService();
-			mailProfileService = new JsonMailProfileService();
+            SettingsInfo = new SettingsInfo();
+            mailDaemonService = new MailDaemonService();
+            mailProfileService = new JsonMailProfileService();
             mailMessageService = new MailMessageService();
             _mailAgent = new MailAgent();
             
@@ -103,9 +103,9 @@ namespace MailDaemon.ConsoleApp
             }
 
             if (args.Length > 0)
-			{
+            {
                 Log.Information($"Command line args: mail-daemon {string.Join(" ", args)}");
-				try
+                try
                 {
                     var argIndex = 0;
                     foreach (var arg in args)
@@ -138,13 +138,13 @@ namespace MailDaemon.ConsoleApp
                         argIndex++;
                     }
                 }
-				catch (Exception ex)
-				{
+                catch (Exception ex)
+                {
                     Log.Fatal(GenerateExceptionDetails(ex));
                     DisplayErrorMessage(ex.Message);
-					return;
-				}
-			}
+                    return;
+                }
+            }
 
             if (DisplayHelp)
             {
@@ -174,15 +174,15 @@ namespace MailDaemon.ConsoleApp
             //Console.Write(Environment.NewLine);
 
             if (mailDaemonService.JustValidate)
-			{
-				Console.ForegroundColor = ConsoleColor.Yellow;
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
                 DiagMessage = "--- Validation mode: do not send any mail. Just validate mail profile and recipients.";
                 Log.Information(DiagMessage);
-				Console.WriteLine(DiagMessage);
-				Console.WriteLine("");
-				Console.ResetColor();
+                Console.WriteLine(DiagMessage);
+                Console.WriteLine("");
+                Console.ResetColor();
                 ResetDiagMessage();
-			}
+            }
 
             DiagMessage = $"Application directory: {SettingsInfo.AppDirectory}";
             Console.WriteLine(DiagMessage);
@@ -311,10 +311,10 @@ namespace MailDaemon.ConsoleApp
             // perform recipients
             var counter = 0;
             var recipientsReport = new StringBuilder();
-			foreach (var recipient in MailProfile.Recipients.Where(x => !x.Skip.GetValueOrDefault()))
-			{
-				var recipientReportInfo = new StringBuilder();
-				try
+            foreach (var recipient in MailProfile.Recipients.Where(x => !x.Skip.GetValueOrDefault()))
+            {
+                var recipientReportInfo = new StringBuilder();
+                try
                 {
                     if (string.IsNullOrEmpty(recipient.MailBodyTemplateFileName))
                     {
@@ -348,16 +348,16 @@ namespace MailDaemon.ConsoleApp
                     //Console.WriteLine($"({counter}) {recipient.Company?.ToUpper()} {recipient.Name}");
                     Console.WriteLine($"({counter}) {recipient.Name}");
                     Console.WriteLine($"Mail: {recipient.Address}");
-					Console.WriteLine($"Subject: {mailMessage.Subject}");
-					Console.WriteLine($"Template: {(!string.IsNullOrEmpty(recipient.MailBodyTemplateFileName) ? recipient.MailBodyTemplateFileName : mailDaemonService.MailProfile.MailBodyTemplateFileName)}");
+                    Console.WriteLine($"Subject: {mailMessage.Subject}");
+                    Console.WriteLine($"Template: {(!string.IsNullOrEmpty(recipient.MailBodyTemplateFileName) ? recipient.MailBodyTemplateFileName : mailDaemonService.MailProfile.MailBodyTemplateFileName)}");
 
                     if (recipient.Skip.GetValueOrDefault())
                         recipientReportInfo.AppendLine("<div style=\"color: #999\">");
                     //recipientReportInfo.AppendLine($"({counter}) {recipient.Company?.ToUpper()} {recipient.Name} <a href=\"mailto:{recipient.Address}\">{recipient.Address}</a>");
                     recipientReportInfo.AppendLine($"({counter}) {recipient.Name} <a href=\"mailto:{recipient.Address}\">{recipient.Address}</a>");
-					recipientReportInfo.AppendLine($"<div>Subject: {mailMessage.Subject}</div>");
-					if (!string.IsNullOrEmpty(recipient.MailBodyTemplateFileName) && recipient.MailBodyTemplateFileName != mailDaemonService.MailProfile.MailBodyTemplateFileName)
-    					recipientReportInfo.AppendLine($"<div>Template: {recipient.MailBodyTemplateFileName}</div>");
+                    recipientReportInfo.AppendLine($"<div>Subject: {mailMessage.Subject}</div>");
+                    if (!string.IsNullOrEmpty(recipient.MailBodyTemplateFileName) && recipient.MailBodyTemplateFileName != mailDaemonService.MailProfile.MailBodyTemplateFileName)
+                        recipientReportInfo.AppendLine($"<div>Template: {recipient.MailBodyTemplateFileName}</div>");
 
                     // recipient related attachments use at first
                     if (recipient.Attachments != null)
@@ -379,21 +379,21 @@ namespace MailDaemon.ConsoleApp
 
                     // attachments
                     if (MailProfile.Attachments != null)
-					{
-						foreach (var attachment in MailProfile.Attachments)
-						{
-							if (File.Exists(attachment.Path))
-							{
-								Console.WriteLine($"\tAttachment: \"{attachment.Path}\"");
-								recipientReportInfo.AppendLine($"<div style=\"padding-left: 40px\">Attachment: \"{attachment.Path}\"</div>");
-							}
-							else
-							{
-								DisplayWarningMessage($"\tAttachment: file \"{attachment.Path}\" not exists.");
-								recipientReportInfo.AppendLine($"<div style=\"padding-left: 40px\">Attachment: file \"{attachment.Path}\" not exists.</div>");
-							}
-						}
-					}
+                    {
+                        foreach (var attachment in MailProfile.Attachments)
+                        {
+                            if (File.Exists(attachment.Path))
+                            {
+                                Console.WriteLine($"\tAttachment: \"{attachment.Path}\"");
+                                recipientReportInfo.AppendLine($"<div style=\"padding-left: 40px\">Attachment: \"{attachment.Path}\"</div>");
+                            }
+                            else
+                            {
+                                DisplayWarningMessage($"\tAttachment: file \"{attachment.Path}\" not exists.");
+                                recipientReportInfo.AppendLine($"<div style=\"padding-left: 40px\">Attachment: file \"{attachment.Path}\" not exists.</div>");
+                            }
+                        }
+                    }
 
                     if (recipient.Skip.GetValueOrDefault())
                     {
@@ -402,10 +402,10 @@ namespace MailDaemon.ConsoleApp
                     }
 
                     if (mailDaemonService.SendDemo)
-					{
-						Console.ForegroundColor = ConsoleColor.Cyan;
-						Console.WriteLine($"--- Send demo to sender address: {MailProfile.Sender.Address} ---");
-						Console.ResetColor();
+                    {
+                        Console.ForegroundColor = ConsoleColor.Cyan;
+                        Console.WriteLine($"--- Send demo to sender address: {MailProfile.Sender.Address} ---");
+                        Console.ResetColor();
                     }
 
                     if (mailDaemonService.GeneratePreview)
@@ -416,7 +416,7 @@ namespace MailDaemon.ConsoleApp
                         try
                         {
                             var fileNamePrefix = "";
-							if (recipient.Skip.GetValueOrDefault())
+                            if (recipient.Skip.GetValueOrDefault())
                                 fileNamePrefix = "(skipped)_";
                             var previewFilePath = Path.Combine(PreviewsDirPath, $"{fileNamePrefix}{recipient.Address}{Path.GetExtension(recipient.MailBodyTemplateFileName)}");
                             File.WriteAllText(previewFilePath, mailMessage.Body);
@@ -429,7 +429,7 @@ namespace MailDaemon.ConsoleApp
                     }
 
                     if (!mailDaemonService.JustValidate)
-					{
+                    {
                         if (recipient.Skip.GetValueOrDefault())
                         {
                             ReportInfo.SkippedMailCount++;
@@ -443,23 +443,23 @@ namespace MailDaemon.ConsoleApp
                             var mailSendResult = _mailAgent.Send(mailMessage);
                             Log.Information($"Send to: {recipient.Address}");
 
-						    if (!mailSendResult.Success)
-						    {
+                            if (!mailSendResult.Success)
+                            {
                                 ReportInfo.ErrorsMailCount++;
                                 Log.Error($"  Error sending to: {recipient.Address}");
-							    DisplayErrorMessage(mailSendResult.Message);
-						    }
-						    else
+                                DisplayErrorMessage(mailSendResult.Message);
+                            }
+                            else
                             {
                                 ReportInfo.SentMailCount++;
                                 Log.Information($"  Sent to: {recipient.Address}");
-							    Console.ForegroundColor = ConsoleColor.Green;
-							    Console.WriteLine("--- Sent ---");
-							    Console.ResetColor();
-							    Console.WriteLine("");
-						    }
+                                Console.ForegroundColor = ConsoleColor.Green;
+                                Console.WriteLine("--- Sent ---");
+                                Console.ResetColor();
+                                Console.WriteLine("");
+                            }
                         }
-					}
+                    }
                     else
                     {
                         if (recipient.Skip.GetValueOrDefault())
@@ -469,29 +469,29 @@ namespace MailDaemon.ConsoleApp
                             Console.WriteLine("--- Skipped ---");
                             Console.ResetColor();
                         }
-						Console.WriteLine("");
+                        Console.WriteLine("");
                     }
                 }
-				catch (Exception ex)
-				{
+                catch (Exception ex)
+                {
                     Log.Error(GenerateExceptionDetails(ex));
                     DisplayErrorMessage(ex.Message);
-					Console.WriteLine("--- Error ---");
-					Console.WriteLine("");
-				}
+                    Console.WriteLine("--- Error ---");
+                    Console.WriteLine("");
+                }
 
-				recipientReportInfo.AppendLine("<br/>");
-				recipientsReport.AppendLine(recipientReportInfo.ToString());
+                recipientReportInfo.AppendLine("<br/>");
+                recipientsReport.AppendLine(recipientReportInfo.ToString());
                 ReportInfo.Body = recipientsReport.ToString();
                 Thread.Sleep(mailDaemonService.SendSleep);
-			}
+            }
 
             var report = GenerateReport(mailDaemonService, MailProfile, ReportInfo);
             SaveReportFile(report);
 
             if (!mailDaemonService.JustValidate)
-			{
-				try
+            {
+                try
                 {
                     DiagMessage = $"--- Send status report to sender: {MailProfile.Sender.Address} ---";
                     Log.Information(DiagMessage);
@@ -512,21 +512,21 @@ namespace MailDaemon.ConsoleApp
                     _mailAgent.Send(mailMessage);
 
                     Console.ForegroundColor = ConsoleColor.Yellow;
-					Console.WriteLine("--- Mails has been sent ---");
-					Console.ForegroundColor = ConsoleColor.White;
-				}
-				catch (Exception ex)
-				{
+                    Console.WriteLine("--- Mails has been sent ---");
+                    Console.ForegroundColor = ConsoleColor.White;
+                }
+                catch (Exception ex)
+                {
                     Log.Error(GenerateExceptionDetails(ex));
                     DisplayErrorMessage(ex.Message);
-					Console.WriteLine("--- Error ---");
-				}
-				Thread.Sleep(5000);
-			}
+                    Console.WriteLine("--- Error ---");
+                }
+                Thread.Sleep(5000);
+            }
 
-			if (mailDaemonService.JustValidate || mailDaemonService.SendDemo)
+            if (mailDaemonService.JustValidate || mailDaemonService.SendDemo)
                 WaitForExit();
-		}
+        }
 
         private static string GenerateExceptionDetails(Exception ex)
         {
@@ -587,35 +587,41 @@ namespace MailDaemon.ConsoleApp
         }
 
         private static void SetErrorMessagesStyle()
-		{
-			Console.ForegroundColor = ConsoleColor.Red;
-		}
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+        }
 
-		private static void SetWarningMessagesStyle()
-		{
-			Console.ForegroundColor = ConsoleColor.Magenta;
-		}
+        private static void SetWarningMessagesStyle()
+        {
+            Console.ForegroundColor = ConsoleColor.Magenta;
+        }
 
-		private static void DisplayErrorMessage(string message)
-		{
-			Console.ForegroundColor = ConsoleColor.Red;
-			Console.WriteLine(message);
-			Console.ResetColor();
-		}
+        private static void DisplayErrorMessage(string message)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine(message);
+            Console.ResetColor();
+        }
 
-		private static void DisplayWarningMessage(string message)
-		{
-			Console.ForegroundColor = ConsoleColor.Magenta;
-			Console.WriteLine(message);
-			Console.ResetColor();
-		}
+        private static void DisplayWarningMessage(string message)
+        {
+            Console.ForegroundColor = ConsoleColor.Magenta;
+            Console.WriteLine(message);
+            Console.ResetColor();
+        }
 
-		private static void WaitForExit()
-		{
-			Console.ForegroundColor = ConsoleColor.White;
-			Console.WriteLine("");
-			Console.Write("Press any key to exit...");
-			Console.ReadKey();
-		}
-	}
+        private static void WaitForExit()
+        {
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.WriteLine("");
+            Console.Write("Press the Escape (Esc) key to exit...");
+            ConsoleKeyInfo cki;
+
+            do
+            {
+                cki = Console.ReadKey();
+            }
+            while (cki.Key != ConsoleKey.Escape);
+        }
+    }
 }
