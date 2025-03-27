@@ -440,6 +440,12 @@ namespace MailDaemon.ConsoleApp
                         }
                         else
                         {
+                            if (mailDaemonService.SendDemo)
+                            {
+                                mailMessage.To.Clear();
+                                mailMessage.To.Add(mailDaemonService.GetMailAddress(MailProfile.Sender.Address, MailProfile.Sender.Name));
+                            }
+
                             var mailSendResult = _mailAgent.Send(mailMessage);
                             Log.Information($"Send to: {recipient.Address}");
 
@@ -514,6 +520,14 @@ namespace MailDaemon.ConsoleApp
                     Console.ForegroundColor = ConsoleColor.Yellow;
                     Console.WriteLine("--- Mails has been sent ---");
                     Console.ForegroundColor = ConsoleColor.White;
+
+                    var cursorRow = Console.CursorTop;
+                    for (var i = 5; i >= 0; i--)
+                    {
+                        Console.SetCursorPosition(0, cursorRow);
+                        Console.Write("Exit after... {0}", i);
+                        Thread.Sleep(1000);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -521,7 +535,6 @@ namespace MailDaemon.ConsoleApp
                     DisplayErrorMessage(ex.Message);
                     Console.WriteLine("--- Error ---");
                 }
-                Thread.Sleep(5000);
             }
 
             if (mailDaemonService.JustValidate || mailDaemonService.SendDemo)
@@ -616,7 +629,6 @@ namespace MailDaemon.ConsoleApp
             Console.WriteLine("");
             Console.Write("Press the Escape (Esc) key to exit...");
             ConsoleKeyInfo cki;
-
             do
             {
                 cki = Console.ReadKey();
