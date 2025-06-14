@@ -18,6 +18,23 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
+    },
+    "IIS": {
+      "commandName": "IIS",
+      "workingDirectory": "D:\\Development\\MailDaemon\\MailDaemon\\src\\MailDaemon.WebUI",
+      "launchBrowser": true,
+      "launchUrl": "http://maildaemon/",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  },
+  "iisSettings": {
+    "windowsAuthentication": false,
+    "anonymousAuthentication": true,
+    "iis": {
+      "applicationUrl": "http://maildaemon/",
+      "sslPort": 0
     }
   }
 }
