@@ -19,6 +19,9 @@
 
         public string MailProfileFullPath { get; set; }
 
+        /// <summary>
+        /// The operator is the contact who sends mail messages.
+        /// </summary>
         public SenderInfo Operator { get; set; }
     }
 }

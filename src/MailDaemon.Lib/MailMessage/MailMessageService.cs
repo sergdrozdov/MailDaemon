@@ -61,18 +61,16 @@ namespace MailDaemon.Core
             if (sendDemo)
             {
                 // send as demo to sender
-                mailMessage.From = GetMailAddress(mailProfile.Sender.Address, mailProfile.Sender.Name);
+                mailMessage.From = GetMailAddress(operatorInfo.SmtpUsername, operatorInfo.Name);
                 mailMessage.To.Add(GetMailAddress(operatorInfo.Address, operatorInfo.Name));
-                mailMessage.ReplyToList.Add(mailMessage.From);
-                mailMessage.Headers.Add("Reply-To", mailProfile.Sender.Address);
+                mailMessage.ReplyToList.Add(new MailAddress(mailProfile.Sender.Address, mailProfile.Sender.Name));
             }
             else
             {
                 // send to recipient
-                mailMessage.From = GetMailAddress(mailProfile.Sender.Address, mailProfile.Sender.Name);
+                mailMessage.From = GetMailAddress(operatorInfo.SmtpUsername, operatorInfo.Name);
                 mailMessage.To.Add(GetMailAddress(recipientInfo.Address, recipientInfo.Name));
-                mailMessage.ReplyToList.Add(mailMessage.From);
-                mailMessage.Headers.Add("Reply-To", mailProfile.Sender.Address);
+                mailMessage.ReplyToList.Add(new MailAddress(mailProfile.Sender.Address, mailProfile.Sender.Name));
             }
 
             mailMessage.SubjectEncoding = Encoding.UTF8;

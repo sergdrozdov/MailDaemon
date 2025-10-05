@@ -75,6 +75,7 @@ namespace MailDaemon.ConsoleApp
                 {
                     SettingsInfo.Operator = new SenderInfo
                     {
+                        SmtpUsername = MailProfile.Operator.SmtpUsername,
                         Address = MailProfile.Operator.Address,
                         Name = MailProfile.Operator.Name
                     };
@@ -83,8 +84,9 @@ namespace MailDaemon.ConsoleApp
                 {
                     SettingsInfo.Operator = new SenderInfo
                     {
-                        Address = config["Operator:address"],
-                        Name = config["Operator:name"]
+                        SmtpUsername = config["Operator:SmtpUsername"],
+                        Address = config["Operator:Address"],
+                        Name = config["Operator:Name"]
                     };
                 }
 
