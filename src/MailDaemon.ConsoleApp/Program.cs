@@ -412,15 +412,27 @@ namespace MailDaemon.ConsoleApp
 
                     if (mailDaemonService.GeneratePreview)
                     {
-                        Console.ForegroundColor = ConsoleColor.Cyan;
-                        Console.WriteLine($"--- Create file \"{recipient.Address}.html\" with preview ---");
-                        Console.ResetColor();
                         try
                         {
+                            var reviewFileName = "";
                             var fileNamePrefix = "";
+                            var fileNameSuffix = "";
                             if (recipient.Skip.GetValueOrDefault())
                                 fileNamePrefix = "(skipped)_";
-                            var previewFilePath = Path.Combine(PreviewsDirPath, $"{fileNamePrefix}{recipient.Address}{Path.GetExtension(recipient.MailBodyTemplateFileName)}");
+
+                            // add suffix if more than one recipient with the same email address
+                            var sameAddressCount = MailProfile.Recipients.Count(x => x.Address == recipient.Address);
+                            if (sameAddressCount > 1)
+                            {
+                                fileNameSuffix = $"_({sameAddressCount})_({Path.GetFileName(recipient.MailBodyTemplateFileName)})";
+                            }
+
+                            reviewFileName = $"{fileNamePrefix}{recipient.Address}{fileNameSuffix}{Path.GetExtension(recipient.MailBodyTemplateFileName)}";
+                            Console.ForegroundColor = ConsoleColor.Cyan;
+                            Console.WriteLine($"--- Create file \"{reviewFileName}\" with preview ---");
+                            Console.ResetColor();
+
+                            var previewFilePath = Path.Combine(PreviewsDirPath, reviewFileName);
                             File.WriteAllText(previewFilePath, mailMessage.Body);
                         }
                         catch (Exception ex)
