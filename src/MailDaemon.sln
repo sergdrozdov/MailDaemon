@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MailDaemon.WinForms", "Mail
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MailDaemon.WebUI", "MailDaemon.WebUI\MailDaemon.WebUI.csproj", "{805C0718-E501-4970-A833-A207E2873E86}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MailDaemon.Core", "MailDaemon.Core\MailDaemon.Core.csproj", "{B9013CAA-9BA9-4657-A939-4B54F052E814}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -35,6 +37,10 @@ Global
 		{805C0718-E501-4970-A833-A207E2873E86}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{805C0718-E501-4970-A833-A207E2873E86}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{805C0718-E501-4970-A833-A207E2873E86}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B9013CAA-9BA9-4657-A939-4B54F052E814}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B9013CAA-9BA9-4657-A939-4B54F052E814}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B9013CAA-9BA9-4657-A939-4B54F052E814}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B9013CAA-9BA9-4657-A939-4B54F052E814}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
