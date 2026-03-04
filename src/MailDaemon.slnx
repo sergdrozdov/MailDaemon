@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/Solution Items/" />
+  <Project Path="MailDaemon.ConsoleApp/MailDaemon.ConsoleApp.csproj" />
+  <Project Path="MailDaemon.Core/MailDaemon.Core.csproj" />
+  <Project Path="MailDaemon.Lib/MailDaemon.Lib.csproj" />
+  <Project Path="MailDaemon.WebUI/MailDaemon.WebUI.csproj" />
+  <Project Path="MailDaemon.WinForms/MailDaemon.WinForms.csproj" />
+</Solution>
